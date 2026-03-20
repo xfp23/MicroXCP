@@ -1,0 +1,360 @@
+/**
+ * @file MicroXcp_private.h
+ * @author https://github.com/xfp23
+ * @brief 
+ * @version 0.1
+ * @date 2026-03-20
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
+
+#ifndef MICROXCP_PRIVATE_H
+#define MICROXCP_PRIVATE_H
+
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+typedef enum 
+{
+    CONNECT = 0xFF, 
+    /*
+    ================== CONNECT ==================
+    功能：建立XCP连接（主机第一次握手）
+
+    ------------------ 请求 ------------------
+    [0] 0xFF           // 命令码
+    [1] mode           // 通信模式（一般填0，不用管）
+
+    ------------------ 响应 ------------------
+    [0] 0xFF           // RES（表示成功）
+
+    [1] resource       // 功能支持位（重点！！）
+        bit0 = 1 → 支持 CAL（Calibration，标定 = 读写内存）
+        bit1 = 1 → 支持 DAQ（数据采集）
+        bit2 = 1 → 支持 STIM（主机往ECU实时写数据，一般不用）
+        bit3 = 1 → 支持 PGM（Flash编程）
+        例：
+            0x01 → 只支持标定
+            0x05 → 支持标定 + DAQ（最常见）
+
+    [2] comm_mode      // 通信模式（重点！！）
+        bit7 = 1 → 大端模式（Motorola，高字节在前）
+        bit6 = 1 → 支持地址扩展（一般不用）
+        bit5 = 1 → 支持分块传输（block mode，大数据用）
+        bit0 = 1 → 支持从机block模式（可以连续发数据）
+
+        常见值：
+        0x81 = 1000 0001
+             ↑       ↑
+             |       └─ 支持block模式
+             └─ 大端
+
+    [3] max_cto_high
+    [4] max_cto_low
+        → 最大CTO长度（单位：字节）
+        CAN下通常 = 8
+
+    [5] max_dto
+        → 最大DTO长度（DAQ数据长度）
+        CAN下通常 = 8
+
+    [6] proto_ver
+        → 协议层版本（一般填0x01）
+
+    [7] trans_ver
+        → 传输层版本（CAN一般填0x01）
+    */
+
+    DISCONNECT = 0xFE, 
+    /*
+    ================== DISCONNECT ==================
+    功能：断开XCP连接
+
+    请求：
+    [0] 0xFE
+
+    响应：
+    [0] 0xFF
+    */
+
+    GET_STATUS = 0xFD, 
+    /*
+    ================== GET_STATUS ==================
+    功能：获取当前ECU状态
+
+    请求：
+    [0] 0xFD
+
+    响应：
+    [0] 0xFF
+
+    [1] session_status（会话状态）
+        bit0 = 1 → 已连接
+        bit5 = 1 → DAQ正在运行（正在发数据）
+        例：
+            0x20 → DAQ运行中
+            0x01 → 已连接但没DAQ
+
+    [2] protection（保护状态）
+        bit0 = 1 → CAL受保护（不能写）
+        bit1 = 1 → DAQ受保护
+        bit2 = 1 → PGM受保护
+        一般：
+            0x00 → 没有保护（开发阶段）
+
+    [3~5] reserved
+        → 保留字段，一般填0
+
+    [6] proto_ver
+    [7] trans_ver
+    */
+
+    SYNCH = 0xFC, 
+    /*
+    ================== SYNCH ==================
+    功能：通信同步（当通信异常时恢复）
+
+    请求：
+    [0] 0xFC
+
+    响应：
+    [0] 0xFF
+    */
+}MicroXcp_StandCmd_t;
+
+
+typedef enum 
+{
+    SET_MTA = 0xF6, 
+    /*
+    ================== SET_MTA ==================
+    功能：设置内存指针（MTA = 当前操作地址）
+
+    请求：
+    [0] 0xF6
+    [1] addr_ext       // 地址扩展（多段内存用，一般填0）
+    [2] addr[31:24]    // 高字节
+    [3] addr[23:16]
+    [4] addr[15:8]
+    [5] addr[7:0]      // 低字节
+
+    响应：
+    [0] 0xFF
+
+    说明：
+    后续UPLOAD/DOWNLOAD都从这个地址开始
+    */
+
+    UPLOAD = 0xF5, 
+    /*
+    ================== UPLOAD ==================
+    功能：从ECU读取内存
+
+    请求：
+    [0] 0xF5
+    [1] size           // 读取多少字节（最大7）
+
+    响应：
+    [0] 0xFF
+    [1~] data          // 读出的数据
+
+    说明：
+    每读一次，MTA自动增加 size
+    */
+
+    SHORT_UPLOAD = 0xF4, 
+    /*
+    ================== SHORT_UPLOAD ==================
+    功能：直接读指定地址（不依赖MTA）
+
+    请求：
+    [0] 0xF4
+    [1] size
+    [2] addr_ext
+    [3~6] address
+
+    响应：
+    [0] 0xFF
+    [1~] data
+    */
+
+    DOWNLOAD = 0xF0,
+    /*
+    ================== DOWNLOAD ==================
+    功能：写内存（标定核心）
+
+    请求：
+    [0] 0xF0
+    [1~] data          // 写入的数据
+
+    响应：
+    [0] 0xFF
+
+    说明：
+    写完后MTA自动递增
+    */
+
+    DOWNLOAD_NEXT = 0xEF,
+    /*
+    ================== DOWNLOAD_NEXT ==================
+    功能：连续写数据（大数据分包）
+
+    请求：
+    [0] 0xEF
+    [1~] data
+
+    响应：
+    [0] 0xFF
+    */
+
+    DOWNLOAD_MAX = 0xEE,
+    /*
+    ================== DOWNLOAD_MAX ==================
+    功能：一次写满最大长度
+
+    请求：
+    [0] 0xEE
+    [1~] data
+
+    响应：
+    [0] 0xFF
+    */
+}MicroXcp_MemoryCmd_t;
+
+typedef enum 
+{
+    GET_DAQ_SIZE = 0xD7,
+    /*
+    ================== GET_DAQ_SIZE ==================
+    功能：查询DAQ能力（支持多少采集）
+
+    请求：
+    [0] 0xD7
+
+    响应：
+    [0] 0xFF
+    [1] daq_count      // 支持多少DAQ列表
+    [2] odt_count      // 每个DAQ有多少ODT（数据包）
+    [3] entry_size     // 每个ODT最多多少字节
+    */
+
+    SET_DAQ_PTR = 0xE2,
+    /*
+    ================== SET_DAQ_PTR ==================
+    功能：设置DAQ配置位置（类似写指针）
+
+    请求：
+    [0] 0xE2
+    [1] daq_list   // 第几个DAQ
+    [2] odt        // 第几个数据包
+    [3] entry      // 第几个变量
+
+    响应：
+    [0] 0xFF
+    */
+
+    WRITE_DAQ = 0xE1,
+    /*
+    ================== WRITE_DAQ ==================
+    功能：往DAQ里添加一个采集变量
+
+    请求：
+    [0] 0xE1
+    [1] addr_ext
+    [2~5] address  // 变量地址
+    [6] size       // 变量大小
+
+    响应：
+    [0] 0xFF
+
+    说明：
+    相当于告诉ECU：“我要采集这个变量”
+    */
+
+    SET_DAQ_LIST_MODE = 0xE0,
+    /*
+    ================== SET_DAQ_LIST_MODE ==================
+    功能：设置DAQ触发方式
+
+    请求：
+    [0] 0xE0
+    [1] mode
+        bit0 = 1 → 启用DAQ
+        bit1 = 1 → 按事件触发（比如1ms任务）
+    [2] event_channel
+        → 事件号（你自己定义，比如1ms任务=0）
+
+    响应：
+    [0] 0xFF
+    */
+
+    START_STOP_DAQ_LIST = 0xDE,
+    /*
+    ================== START_STOP_DAQ_LIST ==================
+    功能：启动/停止DAQ
+
+    请求：
+    [0] 0xDE
+    [1] mode
+        0 = 停止
+        1 = 启动
+    [2] daq_list
+
+    响应：
+    [0] 0xFF
+
+    说明：
+    启动后ECU会开始发DTO数据（实时数据流）
+    */
+}MicroXcp_Daq_t;
+
+
+typedef union 
+{
+    struct __attribute__((packed)) 
+    {
+        // [0]
+        uint8_t res_succ; // 响应成功 固定值： 0xFF
+
+        // [1]
+        uint8_t Calib_bit :1; // 标定功能支持位 （给予支持）
+        uint8_t Daq_bit :1; // DAQ功能支持位 （给予支持)
+        uint8_t Stim_bit :1; // 主机实时写数据功能支持位 (本库不予支持)
+        uint8_t Pgm_bit :1; // PGM flash编程支持位 (本库不予支持)
+        uint8_t :4;
+
+        // [2]
+        uint8_t block_bit :1; // 从机block模式 (连续发数据) （不予支持）
+        uint8_t :4;
+        uint8_t blockmode_bit :1; // 分块传输 （不予支持）
+        uint8_t addrex_bit :1; // 地址扩展 （不予支持）
+        uint8_t byte_order :1; // 字节序 1 : motorola | 0 : intel
+
+        // [3] [4]
+        uint8_t max_cto_msb :8;
+        uint8_t max_cto_lsb :8; // 高低字节 最大cto长度 can下通常8字节
+
+        // [5]
+        uint8_t max_dto :8; // 最大Dto长度 Can下通常8字节
+
+        // [6]
+        uint8_t proto_ver :8; // 协议层版本 固定 0x01
+
+        // [7]
+        uint8_t trans_ver :8; // 传输层版本 固定 0x01
+    }byte;
+
+    uint8_t data[8]; // 一帧
+
+}MicroXcp_ConnectRes_t // xcp连接响应 
+
+#ifdef __cplusplus
+}
+#endif
+
+
+#endif
