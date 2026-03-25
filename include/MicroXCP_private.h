@@ -20,6 +20,28 @@ extern "C"
 
 typedef enum 
 {
+    /* --- 协议层通用错误 --- */
+    XCP_ERR_CMD_SYNCH          = 0x00, /* 同步错误：命令未预期（例如：未连接就发命令） */
+    XCP_ERR_CMD_UNKNOWN        = 0x20, /* 未知命令：从机未实现该 PID */
+    XCP_ERR_CMD_SYNTAX         = 0x21, /* 语法错误：命令长度不对或参数格式错误 */
+    XCP_ERR_OUT_OF_RANGE       = 0x22, /* 范围溢出：请求的参数（如地址）超出合法范围 */
+    XCP_ERR_WRITE_PROTECTED    = 0x23, /* 写保护：尝试写入只读区域 */
+    XCP_ERR_ACCESS_DENIED      = 0x24, /* 访问拒绝：未解锁（Seed & Key） */
+    XCP_ERR_ACCESS_LOCKED      = 0x25, /* 访问锁定：资源当前不可用 */
+    XCP_ERR_PAGE_NOT_VALID     = 0x26, /* 页面无效：标定页设置错误 */
+    XCP_ERR_MODE_NOT_VALID     = 0x27, /* 模式无效：当前状态不支持该模式 */
+    XCP_ERR_SEGMENT_NOT_VALID  = 0x28, /* 段无效：内存段索引错误 */
+    XCP_ERR_SEQUENCE           = 0x29, /* 序列错误：Block传输中的序列号不匹配 */
+    XCP_ERR_DAQ_CONFIG         = 0x2A, /* DAQ配置错误：设置的DAQ参数不合法 */
+
+    /* --- 内存/编程相关错误 --- */
+    XCP_ERR_MEMORY_OVERFLOW    = 0x30, /* 内存溢出 */
+    XCP_ERR_GENERIC            = 0x31, /* 通用错误：未定义的内部错误 */
+    XCP_ERR_VERIFY             = 0x32  /* 校验错误：程序写入后校验失败 */
+} MicroXcp_ErrorCode_t;
+
+typedef enum 
+{
     CONNECT = 0xFF, 
     /*
     ================== CONNECT ==================
@@ -391,6 +413,11 @@ extern void MicroXcp_SetMatResFunc(void);
 
 extern void MicroXcp_UploadResFunc(void); 
 
+extern void MicroXcp_ReportError(MicroXcp_ErrorCode_t err); 
+
+extern void MicroXcp_ShortUploadResFunc(void);
+
+extern void MicroXcp_DownloadResFunc(void);
 
 #ifdef __cplusplus
 }

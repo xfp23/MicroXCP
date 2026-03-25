@@ -11,17 +11,18 @@
 
 #include "MicroXCP.h"
 #include "MicroXCP_private.h"
+#include "string.h"
 
-/**
- * @brief 同步
- * 
- */
-static inline void MicroXcp_SynchErr()
-{
-    uint8_t err_res[8] = {0xFE,0x01};
+// /**
+//  * @brief 同步
+//  * 
+//  */
+// static inline void MicroXcp_SynchErr()
+// {
+//     uint8_t err_res[8] = {0xFE,0x01};
 
-    MicroXcp_Transmit(err_res,8);
-}
+//     MicroXcp_Transmit(err_res,8);
+// }
 
 /* cto*/
 
@@ -105,12 +106,103 @@ void MicroXcp_SetMatResFunc()
     MicroXcp_Transmit(res, 8);
 }
 
+/**
+ * @brief 向主机上传数据
+ * 
+ */
 void MicroXcp_UploadResFunc()
 {
     this->mem.r_len = this->frame.byte.payload[0];
-    if(this->mem.r_len > 7)
+    if (this->mem.r_len > 7)
     {
-        MicroXcp_SynchErr(); // 报个错先
+        MicroXcp_ReportError(XCP_ERR_CMD_SYNTAX);
         return;
     }
+    uint8_t data[8] = {0xFF, 0x00};
+    memcpy((void *)this->mem.Cache_Byte, (void *)this->mem.address, this->mem.r_len); // 拷贝数据
+    memcpy((void *)&data[1], (void *)&this->mem.Cache_Byte, this->mem.r_len);
+    MicroXcp_Transmit(data, 8);
+    this->mem.address += this->mem.r_len;
+}
+
+// /**
+//  * @brief 处理 UPLOAD (0xF5) 命令：向主机上传内存数据
+//  */
+// void MicroXcp_UploadResFunc()
+// {
+//     // 1. 获取要读取的字节数
+//     uint8_t len = this->frame.byte.payload[0];
+
+//     // 2. 边界检查：传统 CAN 除去 PID(0xFF) 最多传 7 字节
+//     if (len > 7) 
+//     {
+//         MicroXcp_SendErr(0x22); // ERR_OUT_OF_RANGE (超出范围)
+//         return;
+//     }
+
+//     // // 3. 安全检查：检查 MTA 地址是否在合法的 RAM/Flash 范围内！
+//     // if (!MicroXcp_IsAddressValid(this->mem.address, len))
+//     // {
+//     //     MicroXcp_SendErr(0x24); // ERR_ACCESS_DENIED (地址非法)
+//     //     return;
+//     // }
+
+//     // 4. 构造响应报文（自动清零防止脏数据）
+//     uint8_t data[8] = {0};
+//     data[0] = 0xFF; // RES 肯定应答
+
+//     // 5. 安全拷贝：不需要中间变量 Cache_Byte，直接从 MTA 拷贝到发送 buffer
+//     // 使用 void* 强转读取
+//     memcpy((void*)&data[1], (const void*)this->mem.address, len);
+
+//     // 6. 发送数据
+//     MicroXcp_Transmit(data, 8);
+
+//     // 7. 协议灵魂：MTA 自动累加，为下一次读取做准备！
+//     this->mem.address += len; 
+// }
+
+void MicroXcp_ReportError(MicroXcp_ErrorCode_t err)
+{
+    uint8_t data[8] = {0};
+    data[0] = 0xFE;
+    data[1] = (uint8_t)err;
+
+    MicroXcp_Transmit(data,8);
+}
+
+void MicroXcp_ShortUploadResFunc()
+{
+    uint8_t size = this->frame.data[1];
+    if(size > 7)
+    {
+        MicroXcp_ReportError(XCP_ERR_CMD_SYNTAX);
+        return;
+    }
+    uint32_t addr = (uint32_t)((uint32_t)this->frame.data[3] << 24 | (uint32_t)this->frame.data[4] << 16 | (uint16_t)this->frame.data[5] << 8 | this->frame.data[6]);
+    uint8_t res[8] = {0};
+    res[0] = 0xFF;
+
+    memcpy((void*)&res[1],(void*)addr,size);
+    MicroXcp_Transmit(res,8);
+}
+
+void MicroXcp_DownloadResFunc()
+{
+    uint8_t size = this->frame.byte.payload[0]; 
+
+    if (size > 6) 
+    {
+        MicroXcp_SendError(XCP_ERR_CMD_SYNTAX);
+        return;
+    }
+
+    memcpy((void*)this->mem.address, (void*)&this->frame.byte.payload[1], size);
+
+    // 5. MTA 自动递增
+    this->mem.address += size;
+
+    // 6. 回复 RES (0xFF)
+    uint8_t res[8] = {0xFF, 0x00};
+    MicroXcp_Transmit(res,8);
 }

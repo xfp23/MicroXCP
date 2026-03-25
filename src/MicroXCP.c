@@ -17,20 +17,28 @@ MicroXcp_RegisterTable_t CtoTable[] = {
 MicroXcp_RegisterTable_t MemTable[] = {
     {.pid = SET_MTA, .func = MicroXcp_SetMatResFunc},
     {.pid = UPLOAD, .func = MicroXcp_UploadResFunc},
-    {.pid = SHORT_UPLOAD, .func = NULL},
-    {.pid = DOWNLOAD, .func = NULL},
-    {.pid = DOWNLOAD_NEXT, .func = NULL},
+    {.pid = SHORT_UPLOAD, .func = MicroXcp_ShortUploadResFunc},
+    {.pid = DOWNLOAD, .func = MicroXcp_DownloadResFunc},
+    // {.pid = DOWNLOAD_NEXT, .func = NULL}, // 不做支持
 };
 
-/**
- * @brief 错误响应，pid不支持
- *
- */
-static inline void MicroXcp_UnKnownPidErr()
-{
-    uint8_t res[8] = {0xFE,0x01};
-    MicroXcp_Transmit(res,8);
-}
+MicroXcp_RegisterTable_t DaqTable[] = {
+    {.pid = GET_DAQ_SIZE,.func = NULL},
+    {.pid = SET_DAQ_PTR,.func = NULL},
+    {.pid = WRITE_DAQ,.func = NULL},
+    {.pid = SET_DAQ_LIST_MODE,.func = NULL},
+
+};
+
+// /**
+//  * @brief 错误响应，pid不支持
+//  *
+//  */
+// static inline void MicroXcp_UnKnownPidErr()
+// {
+//     uint8_t res[8] = {0xFE,0x01};
+//     MicroXcp_Transmit(res,8);
+// }
 
 static void MicroXcp_CtoInit()
 {
@@ -107,7 +115,7 @@ MicroXcp_Status_t MicroXcp_TimerHandler()
         if (node == NULL)
         {
             // 没找到回复不支持pid
-            MicroXcp_UnKnownPidErr();
+             MicroXcp_ReportError(XCP_ERR_CMD_UNKNOWN);
         }
     }
     else if (this->frame.byte.pid >= 0xF6 && this->frame.byte.pid <= 0xEE)
@@ -128,14 +136,14 @@ MicroXcp_Status_t MicroXcp_TimerHandler()
         if (node == NULL)
         {
             // 没找到回复不支持pid
-            MicroXcp_UnKnownPidErr();
+            MicroXcp_ReportError(XCP_ERR_CMD_UNKNOWN);
         }
     }
     else if (this->frame.byte.pid >= 0xD7 && this->frame.byte.pid <= 0xDE)
     {
         // 查找DTO
     }else {
-        MicroXcp_UnKnownPidErr();
+         MicroXcp_ReportError(XCP_ERR_CMD_UNKNOWN);
     }
 
     this->ready.en = false;
@@ -148,6 +156,7 @@ void MicroXcp_ReceiveCallback(uint8_t *data, size_t len)
 {
     if (data == NULL || len == 0 || len > sizeof(this->frame))
     {
+        MicroXcp_ReportError(XCP_ERR_GENERIC);
         return;
     }
 
