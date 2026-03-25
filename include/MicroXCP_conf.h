@@ -30,6 +30,30 @@ extern "C"
  */
 #define MICROXCP_CTO_BYTEORDER 0
 
+/**
+ * @brief 标定 读写内存功能支持 (本库支持，用户可以选择使能与禁用)
+ * 
+ *  1 : 支持
+ *  0 : 不支持
+ * 
+ */
+#define MICROXCP_SUPPORT_CALIBRATION 1
+
+/**
+ * @brief DAQ数据采集功能 (本库支持，用户可以选择使能与禁用)
+ * 
+ *  1 : 支持
+ *  0 : 不支持
+ * 
+ */
+#define MICROXCP_SUPPORT_DAQ 1
+
+/**
+ * @brief 标定保护
+ * 
+ */
+#define MICROXCP_PROTECT_CAL 0
+
 
 
 #ifdef __cplusplus

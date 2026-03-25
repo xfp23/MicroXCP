@@ -96,8 +96,8 @@ typedef enum
         bit0 = 1 → 已连接
         bit5 = 1 → DAQ正在运行（正在发数据）
         例：
-            0x20 → DAQ运行中
-            0x01 → 已连接但没DAQ
+            1 → DAQ运行中
+            0 → DAQ不运行
 
     [2] protection（保护状态）
         bit0 = 1 → CAL受保护（不能写）
@@ -136,11 +136,12 @@ typedef enum
 
     请求：
     [0] 0xF6
-    [1] addr_ext       // 地址扩展（多段内存用，一般填0）
-    [2] addr[31:24]    // 高字节
-    [3] addr[23:16]
-    [4] addr[15:8]
-    [5] addr[7:0]      // 低字节
+
+    [1] addr_ext       // 地址扩展（多段内存用，一般填0） payload 0
+    [2] addr[31:24]    // 高字节 payload 1
+    [3] addr[23:16] payload 2
+    [4] addr[15:8] payload 3
+    [5] addr[7:0]      // 低字节 payload 4
 
     响应：
     [0] 0xFF
@@ -350,7 +351,46 @@ typedef union
 
     uint8_t data[8]; // 一帧
 
-}MicroXcp_ConnectRes_t // xcp连接响应 
+}MicroXcp_ConnectRes_t;// xcp连接响应 
+
+
+typedef union {
+    struct __attribute__((packed))
+    {
+        uint8_t res :8; // 响应字节，固定 0xFF
+        uint8_t con_sta :1; // 连接状态 1 : 已连接 0 : 未连接
+        uint8_t:4;
+        uint8_t daq_sta :1; // 1 : DAQ运行中
+        uint8_t:2;
+        uint8_t protect_cal :1; // 标定保护
+        uint8_t protect_daq :1; // daq保护
+        uint8_t protect_pgm :1; // pgm受保护
+        uint32_t :29;
+        uint8_t proto_ver:8;
+        uint8_t trans_ver:8; 
+    }byte;
+
+    uint8_t data[8];
+}MicroXcp_GetStaRes_t;
+
+extern MicroXcp_Obj_t * const this;
+
+/**
+ * @brief 连接pid响应
+ * 
+ */
+extern void MicroXcp_ConnectResFunc(void);
+
+extern void MicroXcp_DisConnectResFunc(void);
+
+extern void MicroXcp_GetStatusResFunc(void); 
+
+extern void MicroXcp_SynchResFunc(void);
+
+extern void MicroXcp_SetMatResFunc(void);
+
+extern void MicroXcp_UploadResFunc(void); 
+
 
 #ifdef __cplusplus
 }
