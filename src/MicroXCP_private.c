@@ -1,30 +1,12 @@
 /**
  * @file MicroXcp_private.c
- * @author https://github.com/xfp23
- * @brief xcp åè®®ç§æœ‰å®žçŽ°
- * @version 0.1
- * @date 2026-03-20
- *
- * @copyright Copyright (c) 2026
- *
  */
 
 #include "MicroXCP.h"
 #include "MicroXCP_private.h"
 #include "string.h"
 
-// /**
-//  * @brief åŒæ­¥
-//  * 
-//  */
-// static inline void MicroXcp_SynchErr()
-// {
-//     uint8_t err_res[8] = {0xFE,0x01};
-
-//     MicroXcp_Transmit(err_res,8);
-// }
-
-/* cto*/
+/* CTO */
 
 void MicroXcp_ConnectResFunc()
 {
@@ -34,10 +16,10 @@ void MicroXcp_ConnectResFunc()
         .byte.Daq_bit = MICROXCP_SUPPORT_DAQ,
         .byte.Stim_bit = 0,
         .byte.Pgm_bit = 0,
-        .byte.block_bit = 0, // ä¿ç•™æ„è§
+        .byte.block_bit = 0, 
         .byte.blockmode_bit = 0,
-        .byte.max_cto_lsb = 8,
-        .byte.max_cto_msb = 0,
+        .byte.max_cto_lsb = 0,
+        .byte.max_cto_msb = 8,
         .byte.max_dto = 8,
         .byte.proto_ver = 0x01,
         .byte.trans_ver = 0x01,
@@ -49,7 +31,6 @@ void MicroXcp_ConnectResFunc()
     if (ret == 0)
     {
         this->sta.con_sta = 1;
-
         this->sta.daq_run = 0;
     }
     else
@@ -59,10 +40,6 @@ void MicroXcp_ConnectResFunc()
     }
 }
 
-/**
- * @brief æ–­å¼€è¿žæŽ¥pidå“åº”
- *
- */
 void MicroXcp_DisConnectResFunc()
 {
     uint8_t res[8] = {0xFF};
@@ -94,22 +71,17 @@ void MicroXcp_SynchResFunc()
     MicroXcp_Transmit(res, 8);
 }
 
-/** MTO */
+/* MTO */
 
 void MicroXcp_SetMatResFunc()
 {
-    this->mem.ext = this->frame.byte.payload[0];
-    this->mem.address = (uint32_t)((uint32_t)this->frame.byte.payload[1] << 24 | (uint32_t)this->frame.byte.payload[2] << 16 | (uint16_t)this->frame.byte.payload[3] << 8 | \
-    this->frame.byte.payload[4]);
+    this->mem.ext = this->frame.data[3];
+    this->mem.address = (uint32_t)((uint32_t)this->frame.data[7] << 24 | (uint32_t)this->frame.data[6] << 16 | (uint16_t)this->frame.data[5] << 8 | this->frame.data[4]);
 
     uint8_t res[8] = {0xFF};
     MicroXcp_Transmit(res, 8);
 }
 
-/**
- * @brief å‘ä¸»æœºä¸Šä¼ æ•°æ®
- * 
- */
 void MicroXcp_UploadResFunc()
 {
     this->mem.r_len = this->frame.byte.payload[0];
@@ -119,48 +91,11 @@ void MicroXcp_UploadResFunc()
         return;
     }
     uint8_t data[8] = {0xFF, 0x00};
-    memcpy((void *)this->mem.Cache_Byte, (void *)this->mem.address, this->mem.r_len); // æ‹·è´æ•°æ®
+    memcpy((void *)this->mem.Cache_Byte, (void *)this->mem.address, this->mem.r_len); 
     memcpy((void *)&data[1], (void *)&this->mem.Cache_Byte, this->mem.r_len);
     MicroXcp_Transmit(data, 8);
     this->mem.address += this->mem.r_len;
 }
-
-// /**
-//  * @brief å¤„ç† UPLOAD (0xF5) å‘½ä»¤ï¼šå‘ä¸»æœºä¸Šä¼ å†…å­˜æ•°æ®
-//  */
-// void MicroXcp_UploadResFunc()
-// {
-//     // 1. èŽ·å–è¦è¯»å–çš„å­—èŠ‚æ•°
-//     uint8_t len = this->frame.byte.payload[0];
-
-//     // 2. è¾¹ç•Œæ£€æŸ¥ï¼šä¼ ç»Ÿ CAN é™¤åŽ» PID(0xFF) æœ€å¤šä¼  7 å­—èŠ‚
-//     if (len > 7) 
-//     {
-//         MicroXcp_SendErr(0x22); // ERR_OUT_OF_RANGE (è¶…å‡ºèŒƒå›´)
-//         return;
-//     }
-
-//     // // 3. å®‰å…¨æ£€æŸ¥ï¼šæ£€æŸ¥ MTA åœ°å€æ˜¯å¦åœ¨åˆæ³•çš„ RAM/Flash èŒƒå›´å†…ï¼
-//     // if (!MicroXcp_IsAddressValid(this->mem.address, len))
-//     // {
-//     //     MicroXcp_SendErr(0x24); // ERR_ACCESS_DENIED (åœ°å€éžæ³•)
-//     //     return;
-//     // }
-
-//     // 4. æž„é€ å“åº”æŠ¥æ–‡ï¼ˆè‡ªåŠ¨æ¸…é›¶é˜²æ­¢è„æ•°æ®ï¼‰
-//     uint8_t data[8] = {0};
-//     data[0] = 0xFF; // RES è‚¯å®šåº”ç­”
-
-//     // 5. å®‰å…¨æ‹·è´ï¼šä¸éœ€è¦ä¸­é—´å˜é‡ Cache_Byteï¼Œç›´æŽ¥ä»Ž MTA æ‹·è´åˆ°å‘é€ buffer
-//     // ä½¿ç”¨ void* å¼ºè½¬è¯»å–
-//     memcpy((void*)&data[1], (const void*)this->mem.address, len);
-
-//     // 6. å‘é€æ•°æ®
-//     MicroXcp_Transmit(data, 8);
-
-//     // 7. åè®®çµé­‚ï¼šMTA è‡ªåŠ¨ç´¯åŠ ï¼Œä¸ºä¸‹ä¸€æ¬¡è¯»å–åšå‡†å¤‡ï¼
-//     this->mem.address += len; 
-// }
 
 void MicroXcp_ReportError(MicroXcp_ErrorCode_t err)
 {
@@ -179,12 +114,16 @@ void MicroXcp_ShortUploadResFunc()
         MicroXcp_ReportError(XCP_ERR_CMD_SYNTAX);
         return;
     }
-    uint32_t addr = (uint32_t)((uint32_t)this->frame.data[3] << 24 | (uint32_t)this->frame.data[4] << 16 | (uint16_t)this->frame.data[5] << 8 | this->frame.data[6]);
+    // Byte 4~7 ÊÇµØÖ·
+    uint32_t addr = (uint32_t)((uint32_t)this->frame.data[7] << 24 | (uint32_t)this->frame.data[6] << 16 | (uint16_t)this->frame.data[5] << 8 | this->frame.data[4]);
     uint8_t res[8] = {0};
     res[0] = 0xFF;
 
     memcpy((void*)&res[1],(void*)addr,size);
     MicroXcp_Transmit(res,8);
+
+    // XCP Ð­ÒéÒªÇó ShortUpload ºó×Ô¶¯¸üÐÂ MTA
+    this->mem.address = addr + size;
 }
 
 void MicroXcp_DownloadResFunc()
@@ -193,32 +132,33 @@ void MicroXcp_DownloadResFunc()
 
     if (size > 6) 
     {
-        MicroXcp_ReportError(XCP_ERR_CMD_SYNTAX);
+        MicroXcp_ReportError(XCP_ERR_CMD_SYNTAX); 
         return;
     }
 
     memcpy((void*)this->mem.address, (void*)&this->frame.byte.payload[1], size);
 
-    // 5. MTA è‡ªåŠ¨é€’å¢ž
     this->mem.address += size;
 
-    // 6. å›žå¤ RES (0xFF)
     uint8_t res[8] = {0xFF, 0x00};
     MicroXcp_Transmit(res,8);
 }
 
-/**
- * @brief æŸ¥è¯¢DAQèƒ½åŠ›
- * 
- */
+/* DAQ */
+
 void MicroXcp_GetDaqSizeResFunc()
 {
-    uint8_t data[8] = {0};
+    // ±ØÐë¸ù¾ÝÇëÇóµÄ Daq_List ±àºÅÀ´·µ»Ø
+    uint8_t list_index = this->frame.data[2];
+    if (list_index >= MICROXCP_DAQLIST_COUNT) {
+        MicroXcp_ReportError(XCP_ERR_OUT_OF_RANGE);
+        return;
+    }
 
+    uint8_t data[8] = {0};
     data[0] = 0xFF;
-    data[1] = MICROXCP_DAQLIST_COUNT;
-    data[2] = MICROXCP_DAQODT_COUNT;
-    data[3] = MICROXCP_ODTDATA_BYTE;
+    data[1] = MICROXCP_DAQODT_COUNT; // µ±Ç° List ÏÂ°üº¬µÄ ODT ÊýÁ¿
+    data[2] = this->daq.daq_list[list_index].odts[0].pid; // ¸Ã List µÄµÚÒ»¸ö PID
 
     MicroXcp_Transmit(data,8);
 }
@@ -234,29 +174,48 @@ void MicroXcp_SetDaqPtrResFunc()
         MicroXcp_ReportError(XCP_ERR_OUT_OF_RANGE);
         return;
     }
-    this->daq.entry_addr = (uint32_t*)(&this->daq.daq_list[daq_count].odts[odt_count].entries[entry_count]); // è®¾ç½®åœ°å€
-    this->daq.odt_addr = (uint32_t*)(&this->daq.daq_list[daq_count].odts[odt_count]);
-    this->daq.daq_addr = (uint32_t*)(&this->daq.daq_list[daq_count]);
-
-
+    
+    this->daq.ptr_daq = daq_count;
+    this->daq.ptr_odt = odt_count;
+    this->daq.ptr_entry = entry_count;
 
     uint8_t res[8] = {0};
     res[0] = 0xFF;
     MicroXcp_Transmit(res,8);
 }
 
-
 void MicroXcp_WriteDaqResFunc()
 {
-    uint32_t addr = (uint32_t)((uint32_t)this->frame.data[2] << 24 | (uint32_t)this->frame.data[3] << 16 | (uint16_t)this->frame.data[4] << 8 | this->frame.data[5]);
+    uint8_t daq = this->daq.ptr_daq;
+    uint8_t odt = this->daq.ptr_odt;
+    uint8_t entry = this->daq.ptr_entry;
 
-    MicroXcp_Entry_t* ptr = (MicroXcp_Entry_t*)this->daq.entry_addr;
-    MicroXcp_Odt_t* Optr = (MicroXcp_Odt_t*)this->daq.odt_addr;
+    if(daq >= MICROXCP_DAQLIST_COUNT || odt >= MICROXCP_DAQODT_COUNT || entry >= MICROXCP_ODTDATA_BYTE) {
+        MicroXcp_ReportError(XCP_ERR_WRITE_PROTECTED); 
+        return;
+    }
 
-    uint8_t size = this->frame.data[6];
-    ptr->addr = addr;
-    ptr->size = size;
-    Optr->entry_count++;
+    // ÐÞ¸´Ð­ÒéÆ«ÒÆÁ¿£¬Byte 2 ÊÇ Size£¬Byte 4~7 ÊÇ Address
+    uint8_t size = this->frame.data[2];
+    uint32_t addr = (uint32_t)((uint32_t)this->frame.data[7] << 24 | (uint32_t)this->frame.data[6] << 16 | (uint16_t)this->frame.data[5] << 8 | this->frame.data[4]);
+
+    MicroXcp_Entry_t* pEntry = &this->daq.daq_list[daq].odts[odt].entries[entry];
+    MicroXcp_Odt_t* pOdt = &this->daq.daq_list[daq].odts[odt];
+
+    pEntry->addr = addr;
+    pEntry->size = size;
+
+    // ¸üÐÂµ±Ç° ODT Êµ¼ÊÈûÈëµÄÔªËØ¸öÊý
+    if (entry >= pOdt->entry_count) {
+        pOdt->entry_count = entry + 1; 
+    }
+
+    // Ð­ÒéÁé»ê£ºÐ´ÍêÒ»¸öÖ®ºó£¬Ö¸Õë±ØÐë×Ô¶¯×ÔÔö£¡
+    this->daq.ptr_entry++;
+    if (this->daq.ptr_entry >= MICROXCP_ODTDATA_BYTE) {
+        this->daq.ptr_entry = 0;
+        this->daq.ptr_odt++;
+    }
 
     uint8_t res[8] = {0};
     res[0] = 0xFF;
@@ -266,29 +225,46 @@ void MicroXcp_WriteDaqResFunc()
 
 void MicroXcp_SetDaqModeResFunc()
 {
-    MicroXcp_DaqObj_t* ptr = (MicroXcp_DaqObj_t*)this->daq.daq_addr;
+    /* * [±ê×¼Ð­Òé½âÎö]
+     * Byte 1: Mode (bit 0 ÊÇÊ¹ÄÜÎ»)
+     * Byte 2-3: DAQ List Number (´Ë´¦°´ÕÕÐ¡¶Ë´¦Àí£¬¼´ data[2] ÊÇµÍ×Ö½Ú)
+     * Byte 4-5: Event Channel
+     */
+    
+    // 1. »ñÈ¡Ä¿±ê DAQ List Ë÷Òý (Byte 2-3)
+    uint16_t daq_list_idx = (uint16_t)(this->frame.data[3] | ((uint16_t)this->frame.data[2] << 8));
 
-    ptr->en = this->frame.data[1];
-    if(ptr->en == 1)
-    {
-        ptr->odt_count++; // å®žé™…æ¿€æ´»çš„åˆ—è¡¨
+    // 2. ±ß½ç¼ì²é
+    if (daq_list_idx >= MICROXCP_DAQLIST_COUNT) {
+        MicroXcp_ReportError(XCP_ERR_OUT_OF_RANGE);
+        return;
     }
-    ptr->event_channel = this->frame.data[2];
 
+    MicroXcp_DaqObj_t* pDaq = &this->daq.daq_list[daq_list_idx];
+
+    // 3. ÉèÖÃ Mode (Byte 1)
+    uint8_t mode = this->frame.data[1];
+    pDaq->en = (mode & 0x01); // Bit 0: 1=Selected for session, 0=Not selected
+
+    pDaq->event_channel = (uint16_t)(this->frame.data[5] <<8 | ((uint16_t)this->frame.data[4]));
+
+    // 5. ¹¹ÔìÕýÏìÓ¦
     uint8_t res[8] = {0};
-    res[0] = 0xFF;
+    res[0] = 0xFF; // Packet ID: RES (Success)
 
-    MicroXcp_Transmit(res,8);
+    MicroXcp_Transmit(res, 8);
 }
 
 
 void MicroXcp_StartDaqListResFunc()
 {
-
     uint8_t daq_index = this->frame.data[2];
     uint8_t daq_mode = this->frame.data[1];
+    
+    if (daq_index < MICROXCP_DAQLIST_COUNT) {
+        this->daq.daq_list[daq_index].is_running = (daq_mode == 0x02) ? 1 : 0; // ±ê×¼ Start=2, Stop=0
+    }
 
-    this->daq.daq_list[daq_index].is_running = daq_mode;
     uint8_t res[8] = {0};
     res[0] = 0xFF;
 
@@ -299,12 +275,11 @@ void MicroXcp_StartSyncResFunc()
 {
     for(int i = 0; i < MICROXCP_DAQLIST_COUNT; i++)
     {
-        if(this->daq.daq_list[i].en == 1) // æ¿€æ´»è¢«ä½¿èƒ½çš„å…¨éƒ¨åˆ—è¡¨
+        if(this->daq.daq_list[i].en == 1) 
         {
             this->daq.daq_list[i].is_running = 1;
         }
     }
-
 
     uint8_t res[8] = {0};
     res[0] = 0xFF;

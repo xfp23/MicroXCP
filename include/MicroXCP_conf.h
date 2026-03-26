@@ -1,6 +1,6 @@
 /**
  * @file MicroXcp_conf.h
- * @author your name (you@domain.com)
+ * @author https://github.com/xfp23
  * @brief 
  * @version 0.1
  * @date 2026-03-20

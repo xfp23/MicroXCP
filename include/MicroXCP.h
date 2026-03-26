@@ -24,7 +24,11 @@ extern "C"
 
 extern void MicroXcp_Init(void);
 
+MicroXcp_Status_t MicroXcp_TimerHandler(void);
+
 extern int MICROXCP_WEAK MicroXcp_Transmit(uint8_t *data, size_t size);
+
+extern void MicroXcp_ReceiveCallback(uint8_t *data, size_t len);
 
 #ifdef __cplusplus
 }
