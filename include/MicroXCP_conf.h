@@ -19,6 +19,9 @@ extern "C"
 
 #define MICROXCP_VERSION "0.0.1"
 
+
+#define MICROXCP_PERIOD_MS 1
+
 /* CTO配置区域 */
 
 /**
@@ -53,6 +56,24 @@ extern "C"
  * 
  */
 #define MICROXCP_PROTECT_CAL 0
+
+
+/**
+ * @brief DAQ配置
+ * 
+ */
+
+ // daq列表大小
+#define MICROXCP_DAQLIST_COUNT 8
+
+// odt数据包大小
+#define MICROXCP_DAQODT_COUNT 8
+
+// odt大小
+#define MICROXCP_ODTDATA_BYTE 7
+
+// DAQ周期,基于库周期
+#define MICROXCP_DAQPERIOD 1
 
 
 

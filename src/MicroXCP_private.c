@@ -1,7 +1,7 @@
 /**
  * @file MicroXcp_private.c
- * @author your name (you@domain.com)
- * @brief
+ * @author https://github.com/xfp23
+ * @brief xcp 协议私有实现
  * @version 0.1
  * @date 2026-03-20
  *
@@ -193,7 +193,7 @@ void MicroXcp_DownloadResFunc()
 
     if (size > 6) 
     {
-        MicroXcp_SendError(XCP_ERR_CMD_SYNTAX);
+        MicroXcp_ReportError(XCP_ERR_CMD_SYNTAX);
         return;
     }
 
@@ -204,5 +204,110 @@ void MicroXcp_DownloadResFunc()
 
     // 6. 回复 RES (0xFF)
     uint8_t res[8] = {0xFF, 0x00};
+    MicroXcp_Transmit(res,8);
+}
+
+/**
+ * @brief 查询DAQ能力
+ * 
+ */
+void MicroXcp_GetDaqSizeResFunc()
+{
+    uint8_t data[8] = {0};
+
+    data[0] = 0xFF;
+    data[1] = MICROXCP_DAQLIST_COUNT;
+    data[2] = MICROXCP_DAQODT_COUNT;
+    data[3] = MICROXCP_ODTDATA_BYTE;
+
+    MicroXcp_Transmit(data,8);
+}
+
+void MicroXcp_SetDaqPtrResFunc()
+{
+    uint8_t daq_count = this->frame.data[1];
+    uint8_t odt_count = this->frame.data[2];
+    uint8_t entry_count = this->frame.data[3];
+
+    if(daq_count >= MICROXCP_DAQLIST_COUNT || odt_count >= MICROXCP_DAQODT_COUNT || entry_count >= MICROXCP_ODTDATA_BYTE )
+    {
+        MicroXcp_ReportError(XCP_ERR_OUT_OF_RANGE);
+        return;
+    }
+    this->daq.entry_addr = (uint32_t*)(&this->daq.daq_list[daq_count].odts[odt_count].entries[entry_count]); // 设置地址
+    this->daq.odt_addr = (uint32_t*)(&this->daq.daq_list[daq_count].odts[odt_count]);
+    this->daq.daq_addr = (uint32_t*)(&this->daq.daq_list[daq_count]);
+
+
+
+    uint8_t res[8] = {0};
+    res[0] = 0xFF;
+    MicroXcp_Transmit(res,8);
+}
+
+
+void MicroXcp_WriteDaqResFunc()
+{
+    uint32_t addr = (uint32_t)((uint32_t)this->frame.data[2] << 24 | (uint32_t)this->frame.data[3] << 16 | (uint16_t)this->frame.data[4] << 8 | this->frame.data[5]);
+
+    MicroXcp_Entry_t* ptr = (MicroXcp_Entry_t*)this->daq.entry_addr;
+    MicroXcp_Odt_t* Optr = (MicroXcp_Odt_t*)this->daq.odt_addr;
+
+    uint8_t size = this->frame.data[6];
+    ptr->addr = addr;
+    ptr->size = size;
+    Optr->entry_count++;
+
+    uint8_t res[8] = {0};
+    res[0] = 0xFF;
+
+    MicroXcp_Transmit(res,8);
+}
+
+void MicroXcp_SetDaqModeResFunc()
+{
+    MicroXcp_DaqObj_t* ptr = (MicroXcp_DaqObj_t*)this->daq.daq_addr;
+
+    ptr->en = this->frame.data[1];
+    if(ptr->en == 1)
+    {
+        ptr->odt_count++; // 实际激活的列表
+    }
+    ptr->event_channel = this->frame.data[2];
+
+    uint8_t res[8] = {0};
+    res[0] = 0xFF;
+
+    MicroXcp_Transmit(res,8);
+}
+
+
+void MicroXcp_StartDaqListResFunc()
+{
+
+    uint8_t daq_index = this->frame.data[2];
+    uint8_t daq_mode = this->frame.data[1];
+
+    this->daq.daq_list[daq_index].is_running = daq_mode;
+    uint8_t res[8] = {0};
+    res[0] = 0xFF;
+
+    MicroXcp_Transmit(res,8);
+}
+
+void MicroXcp_StartSyncResFunc()
+{
+    for(int i = 0; i < MICROXCP_DAQLIST_COUNT; i++)
+    {
+        if(this->daq.daq_list[i].en == 1) // 激活被使能的全部列表
+        {
+            this->daq.daq_list[i].is_running = 1;
+        }
+    }
+
+
+    uint8_t res[8] = {0};
+    res[0] = 0xFF;
+
     MicroXcp_Transmit(res,8);
 }

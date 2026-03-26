@@ -333,7 +333,29 @@ typedef enum
     说明：
     启动后ECU会开始发DTO数据（实时数据流）
     */
-}MicroXcp_Daq_t;
+
+    START_STOP_SYNCH = 0xDD,
+    /*
+    ================== START_STOP_SYNCH ==================
+    功能：同步启动/停止所有已选择的 DAQ 列表
+
+    请求：
+    [0] 0xDD
+    [1] mode
+        0 = 停止所有 (Stop All)
+        1 = 开启所有已选择的 (Start Selected)
+        2 = 停止所有已选择的 (Stop Selected)
+        3 = 准备同步启动 (Prepare for Synchronous Start)
+
+    响应：
+    [0] 0xFF
+
+    说明：
+    1. 这个指令是“群发”开关。
+    2. 它只影响那些之前通过 0xE0 (SET_DAQ_LIST_MODE) 把 bit0 设为 1 (Selected) 的列表。
+    3. 如果你的 MicroXcp 追求简单，上位机发 1 时，你遍历所有列表把 is_running 改成 1 即可。
+    */
+}MicroXcp_DaqCmd_t;
 
 
 typedef union 
@@ -418,6 +440,18 @@ extern void MicroXcp_ReportError(MicroXcp_ErrorCode_t err);
 extern void MicroXcp_ShortUploadResFunc(void);
 
 extern void MicroXcp_DownloadResFunc(void);
+
+extern void MicroXcp_GetDaqSizeResFunc(void);
+
+extern void MicroXcp_SetDaqPtrResFunc(void); 
+
+extern void MicroXcp_WriteDaqResFunc(void);
+
+extern void MicroXcp_SetDaqModeResFunc(void);
+
+extern void MicroXcp_StartDaqListResFunc(void);
+
+extern void MicroXcp_StartSyncResFunc(void);
 
 #ifdef __cplusplus
 }

@@ -1,3 +1,14 @@
+/**
+ * @file MicroXCP.c
+ * @author https://github.com/xfp23
+ * @brief xcp源码实现
+ * @version 0.1
+ * @date 2026-03-26
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
+
 #include "MicroXcp.h"
 #include "MicroXcp_private.h"
 #include "string.h"
@@ -19,14 +30,15 @@ MicroXcp_RegisterTable_t MemTable[] = {
     {.pid = UPLOAD, .func = MicroXcp_UploadResFunc},
     {.pid = SHORT_UPLOAD, .func = MicroXcp_ShortUploadResFunc},
     {.pid = DOWNLOAD, .func = MicroXcp_DownloadResFunc},
-    // {.pid = DOWNLOAD_NEXT, .func = NULL}, // 不做支持
 };
 
 MicroXcp_RegisterTable_t DaqTable[] = {
-    {.pid = GET_DAQ_SIZE,.func = NULL},
-    {.pid = SET_DAQ_PTR,.func = NULL},
-    {.pid = WRITE_DAQ,.func = NULL},
-    {.pid = SET_DAQ_LIST_MODE,.func = NULL},
+    {.pid = GET_DAQ_SIZE, .func = MicroXcp_GetDaqSizeResFunc},
+    {.pid = SET_DAQ_PTR, .func = MicroXcp_SetDaqPtrResFunc},
+    {.pid = WRITE_DAQ, .func = MicroXcp_WriteDaqResFunc},
+    {.pid = SET_DAQ_LIST_MODE, .func = MicroXcp_SetDaqModeResFunc},
+    {.pid = START_STOP_DAQ_LIST, .func = MicroXcp_StartDaqListResFunc},
+    {.pid = START_STOP_SYNCH, .func = MicroXcp_StartSyncResFunc}
 
 };
 
@@ -77,16 +89,100 @@ static void MicroXcp_MemInit()
     this->mem.list[size - 1].next = NULL; // 不循环，查到NULL就退出
 }
 
+static void MicroXcp_DaqInit()
+{
+    size_t size = XCP_SIZEOF(DaqTable);
+
+    for (int i = 0; i < size; i++)
+    {
+        this->daq.pid_list[i].func = DaqTable[i].func;
+        this->daq.pid_list[i].pid = DaqTable[i].pid;
+    }
+
+    for (int i = 0; i < size - 1; i++)
+    {
+        this->daq.pid_list[i].next = &this->daq.pid_list[i + 1];
+    }
+
+    this->daq.pid_list[size - 1].next = NULL;
+
+    uint8_t global_pid = 0;
+
+    for (int i = 0; i < MICROXCP_DAQLIST_COUNT; i++)
+    {
+        for (int j = 0; j < MICROXCP_DAQODT_COUNT; j++)
+        {
+           
+            this->daq.daq_list[i].odts[j].pid = global_pid++;
+
+            this->daq.daq_list[i].odts[j].entry_count = 0;
+
+            for (int k = 0; k < MICROXCP_ODTDATA_BYTE; k++)
+            {
+                this->daq.daq_list[i].odts[j].entries[k].addr = 0;
+                this->daq.daq_list[i].odts[j].entries[k].size = 0;
+            }
+        }
+    }
+}
+
+void MicroXcp_DaqHandler(uint32_t current_tick_ms)
+{
+    // 1. 遍历所有 DAQ List
+    for (uint8_t d = 0; d < MICROXCP_DAQLIST_COUNT; d++)
+    {
+        MicroXcp_DaqObj_t* pDaq = &this->daq.daq_list[d];
+
+        // 没运行，直接跳过
+        if (!pDaq->is_running) continue;
+
+        // 2. 检查周期 (这里建议直接根据 event_channel 映射，比如 0=1ms, 1=10ms)
+        // 假设 Handler 是 1ms 调一次，你的 tick 逻辑可以简化
+        uint32_t period = (pDaq->event_channel == 0) ? 1 : (pDaq->event_channel * 10);
+        
+        if (current_tick_ms % period == 0) 
+        {
+            // 3. 遍历这个 List 下的所有激活的 ODT (每一帧报文)
+            for (uint8_t o = 0; o < pDaq->odt_count; o++)
+            {
+                MicroXcp_Odt_t* pOdt = &pDaq->odts[o];
+                uint8_t buf[8] = {0};
+                uint8_t pos = 1; // 从 Byte 1 开始存数据，Byte 0 留给 PID
+
+                buf[0] = pOdt->pid; // 填入身份证
+
+                // 4. 遍历 ODT 里的变量 Entry
+                for (uint8_t e = 0; e < pOdt->entry_count; e++)
+                {
+                    MicroXcp_Entry_t* pEntry = &pOdt->entries[e];
+                    
+                    // 安全检查：防止 entry 里的数据把 buf 撑爆
+                    if (pos + pEntry->size <= 8)
+                    {
+                        // 🚩 这里是关键：要把 entry->addr 强制转为指针取出里面的值
+                        memcpy(&buf[pos], (void*)pEntry->addr, pEntry->size);
+                        pos += pEntry->size;
+                    }
+                }
+
+                // 5. 组包完成，立刻吐出去
+                MicroXcp_Transmit(buf, 8); 
+            }
+        }
+    }
+}
+
 void MicroXcp_Init()
 {
     MicroXcp_CtoInit();
     MicroXcp_MemInit();
-
+    MicroXcp_DaqInit();
     this->sta.cal_protect = MICROXCP_PROTECT_CAL;
     this->sta.daq_protect = MICROXCP_PROTECT_CAL;
     this->sta.pgm_protect = MICROXCP_PROTECT_CAL;
 }
 
+// 弱函数，可重写
 int MICROXCP_WEAK MicroXcp_Transmit(uint8_t *data, size_t size)
 {
     (void)data;
@@ -115,7 +211,7 @@ MicroXcp_Status_t MicroXcp_TimerHandler()
         if (node == NULL)
         {
             // 没找到回复不支持pid
-             MicroXcp_ReportError(XCP_ERR_CMD_UNKNOWN);
+            MicroXcp_ReportError(XCP_ERR_CMD_UNKNOWN);
         }
     }
     else if (this->frame.byte.pid >= 0xF6 && this->frame.byte.pid <= 0xEE)
@@ -141,10 +237,29 @@ MicroXcp_Status_t MicroXcp_TimerHandler()
     }
     else if (this->frame.byte.pid >= 0xD7 && this->frame.byte.pid <= 0xDE)
     {
-        // 查找DTO
-    }else {
-         MicroXcp_ReportError(XCP_ERR_CMD_UNKNOWN);
+        // 查找DAQ
+        MicroXcp_FindPid_t *node = &this->daq.pid_list;
+        while (node)
+        {
+            if (node->pid == this->frame.byte.pid)
+            {
+                node->func();
+                break;
+            }
+            node = node->next;
+        }
+
+        if (node == NULL)
+        {
+            MicroXcp_ReportError(XCP_ERR_CMD_UNKNOWN);
+        }
     }
+    else
+    {
+        MicroXcp_ReportError(XCP_ERR_CMD_UNKNOWN);
+    }
+
+    MicroXcp_DaqHandler(this->daq.tick++);
 
     this->ready.en = false;
     memset(this->frame.data, 0, sizeof(MicroXcp_Frame_t));
