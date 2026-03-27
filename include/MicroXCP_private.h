@@ -220,6 +220,20 @@ typedef enum
     说明：
     写完后MTA自动递增
     */
+   SHORT_DOWNLOAD = 0xED,
+   /**
+    * @brief 直接写内存，单次写，不依赖MTA
+    * 
+    *  
+    *   Byte0: 0xED       // PID
+        Byte1: size       // 写入字节数（1~6）
+        Byte2: addr_ext   // 地址扩展（一般0）
+        Byte3: addr[31:24]
+        Byte4: addr[23:16]
+        Byte5: addr[15:8]
+        Byte6: addr[7:0]
+        Byte7~ : data
+    */
 
     DOWNLOAD_NEXT = 0xEF,
     /*
@@ -250,9 +264,11 @@ typedef enum
 
 typedef enum 
 {
-    GET_DAQ_SIZE = 0xD7,
+    GET_DAQ_RESOLUTION_INFO = 0xD9,
+    // GET_DAQ_PROCESSOR_INFO  = 0xD7,
+    GET_DAQ_PROCESSOR_INFO  = 0xDA,
     /*
-    ================== GET_DAQ_SIZE ==================
+    ================== GET_DAQ_PROCESSOR_INFO  ==================
     功能：查询DAQ能力（支持多少采集）
 
     请求：
@@ -358,44 +374,85 @@ typedef enum
 }MicroXcp_DaqCmd_t;
 
 
+// typedef union 
+// {
+//     struct __attribute__((packed)) 
+//     {
+//         // [0]
+//         uint8_t res_succ; // 响应成功 固定值： 0xFF
+
+//         // [1]
+//         uint8_t Calib_bit :1; // 标定功能支持位 （给予支持）
+//         uint8_t Daq_bit :1; // DAQ功能支持位 （给予支持)
+//         uint8_t Stim_bit :1; // 主机实时写数据功能支持位 (本库不予支持)
+//         uint8_t Pgm_bit :1; // PGM flash编程支持位 (本库不予支持)
+//         uint8_t :4;
+
+//         // [2]
+//         uint8_t block_bit :1; // 从机block模式 (连续发数据) （不予支持）
+//         uint8_t :4;
+//         uint8_t blockmode_bit :1; // 分块传输 （不予支持）
+//         uint8_t addrex_bit :1; // 地址扩展 （不予支持）
+//         uint8_t byte_order :1; // 字节序 1 : motorola | 0 : intel
+
+//         // [3] [4]
+//         uint8_t max_cto_msb :8;
+//         uint8_t max_cto_lsb :8; // 高低字节 最大cto长度 can下通常8字节
+
+//         // [5]
+//         uint8_t max_dto :8; // 最大Dto长度 Can下通常8字节
+
+//         // [6]
+//         uint8_t proto_ver :8; // 协议层版本 固定 0x01
+
+//         // [7]
+//         uint8_t trans_ver :8; // 传输层版本 固定 0x01
+//     }byte;
+
+//     uint8_t data[8]; // 一帧
+
+// }MicroXcp_ConnectRes_t;// xcp连接响应 
+
 typedef union 
 {
     struct __attribute__((packed)) 
     {
-        // [0]
-        uint8_t res_succ; // 响应成功 固定值： 0xFF
+        // [0] PID: 总是 0xFF (Res Success)
+        uint8_t res_succ; 
 
-        // [1]
-        uint8_t Calib_bit :1; // 标定功能支持位 （给予支持）
-        uint8_t Daq_bit :1; // DAQ功能支持位 （给予支持)
-        uint8_t Stim_bit :1; // 主机实时写数据功能支持位 (本库不予支持)
-        uint8_t Pgm_bit :1; // PGM flash编程支持位 (本库不予支持)
-        uint8_t :4;
+        // [1] Resource
+        uint8_t Calib_bit :1; // Bit 0
+        uint8_t Daq_bit   :1; // Bit 1
+        uint8_t Stim_bit  :1; 
+        uint8_t Pgm_bit   :1; 
+        uint8_t reserved1 :4;
 
-        // [2]
-        uint8_t block_bit :1; // 从机block模式 (连续发数据) （不予支持）
-        uint8_t :4;
-        uint8_t blockmode_bit :1; // 分块传输 （不予支持）
-        uint8_t addrex_bit :1; // 地址扩展 （不予支持）
-        uint8_t byte_order :1; // 字节序 1 : motorola | 0 : intel
+        // [2] Comm Mode Basic
+        uint8_t byte_order    :1; // Bit 0: 0=Intel, 1=Motorola
+        uint8_t address_ext   :1; // Bit 1
+        uint8_t block_mode    :1; // Bit 2
+        uint8_t reserved2     :3;
+        uint8_t optional_data :1; // Bit 6
+        uint8_t slave_block   :1; // Bit 7
 
-        // [3] [4]
-        uint8_t max_cto_msb :8;
-        uint8_t max_cto_lsb :8; // 高低字节 最大cto长度 can下通常8字节
+        // [3] MAX_CTO: 控制帧最大长度
+        uint8_t max_cto; 
 
-        // [5]
-        uint8_t max_dto :8; // 最大Dto长度 Can下通常8字节
+        // [4] MAX_DTO_LSB: 数据帧最大长度低字节
+        uint8_t max_dto_lsb; 
 
-        // [6]
-        uint8_t proto_ver :8; // 协议层版本 固定 0x01
+        // [5] MAX_DTO_MSB: 数据帧最大长度高字节
+        uint8_t max_dto_msb; 
 
-        // [7]
-        uint8_t trans_ver :8; // 传输层版本 固定 0x01
-    }byte;
+        // [6] Protocol Layer Version
+        uint8_t proto_ver; 
 
-    uint8_t data[8]; // 一帧
+        // [7] Transport Layer Version
+        uint8_t trans_ver; 
+    } byte;
 
-}MicroXcp_ConnectRes_t;// xcp连接响应 
+    uint8_t data[8];
+} MicroXcp_ConnectRes_t;
 
 
 typedef union {
@@ -452,6 +509,10 @@ extern void MicroXcp_SetDaqModeResFunc(void);
 extern void MicroXcp_StartDaqListResFunc(void);
 
 extern void MicroXcp_StartSyncResFunc(void);
+
+extern void MicroXcp_DaqResolutionInfoResFunc(void);
+
+extern void MicroXcp_ShortDownLoadResFunc(void);
 
 #ifdef __cplusplus
 }

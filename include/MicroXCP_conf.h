@@ -1,85 +1,115 @@
 /**
- * @file MicroXcp_conf.h
- * @author https://github.com/xfp23
- * @brief 
- * @version 0.1
- * @date 2026-03-20
- * 
- * @copyright Copyright (c) 2026
- * 
+ * @file    MicroXcp_Conf.h
+ * @author  https://github.com/xfp23
+ * @brief   MicroXCP Configuration File
+ * @version 0.1.0
+ * @date    2026-03-20
+ *
+ * @note    This file is used to configure MicroXCP features and resources.
+ *          Modify according to project requirements.
+ *
+ * @copyright
+ * Copyright (c) 2026
  */
+
 #ifndef MICROXCP_CONF_H
 #define MICROXCP_CONF_H
 
-
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-#define MICROXCP_VERSION "0.0.1"
+/*==============================================================
+ * VERSION
+ *==============================================================*/
+#define MICROXCP_VERSION_STR "0.0.1"
 
-
-#define MICROXCP_PERIOD_MS 1
-
-/* CTO配置区域 */
-
-/**
- * @brief 字节序配置 
- * 
- * @note 1 : motolora
- * @note 0 : intel (本库是intel)
- * 
- */
-#define MICROXCP_CTO_BYTEORDER 0
+/*==============================================================
+ * BASIC CONFIG
+ *==============================================================*/
 
 /**
- * @brief 标定 读写内存功能支持 (本库支持，用户可以选择使能与禁用)
- * 
- *  1 : 支持
- *  0 : 不支持
- * 
+ * @brief MicroXCP scheduling period (unit: ms)
  */
-#define MICROXCP_SUPPORT_CALIBRATION 1
+#define MICROXCP_MAIN_PERIOD_MS   (1U)
 
 /**
- * @brief DAQ数据采集功能 (本库支持，用户可以选择使能与禁用)
+ * @brief Byte order configuration
  * 
- *  1 : 支持
- *  0 : 不支持
- * 
+ * 0 : Intel (Little Endian)
+ * 1 : Motorola (Big Endian)
  */
-#define MICROXCP_SUPPORT_DAQ 1
+#define MICROXCP_CTO_BYTE_ORDER   (0U)
+
+/*==============================================================
+ * FEATURE SWITCH
+ *==============================================================*/
 
 /**
- * @brief 标定保护
- * 
+ * @brief Calibration (memory read/write) support
  */
-#define MICROXCP_PROTECT_CAL 0
-
+#define MICROXCP_FEATURE_CALIBRATION   (1U)
 
 /**
- * @brief DAQ配置
- * 
+ * @brief DAQ data acquisition support
  */
+#define MICROXCP_FEATURE_DAQ           (1U)
 
- // daq列表大小
-#define MICROXCP_DAQLIST_COUNT 8
+/**
+ * @brief Calibration protection (prevent unauthorized write)
+ */
+#define MICROXCP_FEATURE_CAL_PROTECT   (0U)
 
-// odt数据包大小
-#define MICROXCP_DAQODT_COUNT 8
+/*==============================================================
+ * DAQ CONFIG
+ *==============================================================*/
 
-// odt大小
-#define MICROXCP_ODTDATA_BYTE 7
+#if (MICROXCP_FEATURE_DAQ == 1U)
 
-// DAQ周期,基于库周期
-#define MICROXCP_DAQPERIOD 1
+/**
+ * @brief Number of DAQ lists
+ */
+#define MICROXCP_DAQ_LIST_COUNT        (8U)
 
+/**
+ * @brief Number of ODTs per DAQ
+ */
+#define MICROXCP_DAQ_ODT_COUNT         (8U)
 
+/**
+ * @brief Data size (bytes) per ODT
+ * 
+ * @note Typically = CTO size - PID - reserved fields
+ */
+#define MICROXCP_DAQ_ODT_DATA_SIZE     (7U)
+
+/**
+ * @brief DAQ trigger period (based on main cycle multiplier)
+ * 
+ * Actual period = MICROXCP_MAIN_PERIOD_MS * MICROXCP_DAQ_PERIOD
+ */
+#define MICROXCP_DAQ_PERIOD            (1U)
+
+#endif /* MICROXCP_FEATURE_DAQ */
+
+/*==============================================================
+ * COMPILE CHECK
+ *==============================================================*/
+
+#if (MICROXCP_CTO_BYTE_ORDER != 0U) && (MICROXCP_CTO_BYTE_ORDER != 1U)
+#error "MICROXCP_CTO_BYTE_ORDER must be 0 (Intel) or 1 (Motorola)"
+#endif
+
+#if (MICROXCP_MAIN_PERIOD_MS == 0U)
+#error "MICROXCP_MAIN_PERIOD_MS must be > 0"
+#endif
+
+/*==============================================================
+ * END
+ *==============================================================*/
 
 #ifdef __cplusplus
 }
 #endif
 
-
-#endif
+#endif /* MICROXCP_CONF_H */
