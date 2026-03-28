@@ -55,27 +55,27 @@ typedef struct MicroXcp_FindPid
 
 typedef struct
 {
-    MicroXcp_FindPid_t list[4]; // Ôİ¶¨Á´±í´óĞ¡
+    MicroXcp_FindPid_t list[4]; // æš‚å®šé“¾è¡¨å¤§å°
 } MicroXcp_Cto_t;
 
 typedef struct
 {
     MicroXcp_FindPid_t list[5];
-    uint32_t address;      // µ±Ç°µØÖ·
-    uint8_t ext;           // ÄÚ´æÀ©Õ¹
-    uint8_t r_len;         // ¶ÁÈ¡ÄÚ´æ×Ö½ÚÊı
-    uint8_t Cache_Byte[8]; // »º´æ×Ö½Ú
-} MicroXcp_Mem_t;          // ÄÚ´æ²Ù×÷
+    uint32_t address;      // å½“å‰åœ°å€
+    uint8_t ext;           // å†…å­˜æ‰©å±•
+    uint8_t r_len;         // è¯»å–å†…å­˜å­—èŠ‚æ•°
+    uint8_t Cache_Byte[8]; // ç¼“å­˜å­—èŠ‚
+} MicroXcp_Mem_t;          // å†…å­˜æ“ä½œ
 
 typedef struct
 {
-    uint8_t con_sta;     // Á¬½Ó×´Ì¬
-    uint8_t daq_run;     // 0x01 ÔËĞĞÖĞ
-    uint8_t cal_protect; // 0x01 calÊÜ±£»¤(²»ÄÜĞ´)
-    uint8_t daq_protect; // 0x01 daqÊÜ±£»¤
-    uint8_t pgm_protect; // 0x01 pgmÊÜ±£»¤
-                            // Ò»°ã£º
-                            // 0x00 ¡ú Ã»ÓĞ±£»¤£¨¿ª·¢½×¶Î£©
+    uint8_t con_sta;     // è¿æ¥çŠ¶æ€
+    uint8_t daq_run;     // 0x01 è¿è¡Œä¸­
+    uint8_t cal_protect; // 0x01 calå—ä¿æŠ¤(ä¸èƒ½å†™)
+    uint8_t daq_protect; // 0x01 daqå—ä¿æŠ¤
+    uint8_t pgm_protect; // 0x01 pgmå—ä¿æŠ¤
+                            // ä¸€èˆ¬ï¼š
+                            // 0x00 â†’ æ²¡æœ‰ä¿æŠ¤ï¼ˆå¼€å‘é˜¶æ®µï¼‰
 } MicroXcp_STA_t;
 
 typedef struct
@@ -93,17 +93,17 @@ typedef struct
 typedef struct
 {
     MicroXcp_Entry_t entries[MICROXCP_DAQ_ODT_DATA_SIZE];
-    uint8_t entry_count; // Õâ¸ö ODT Êµ¼Ê´æÁË¼¸¸ö±äÁ¿
-    uint8_t pid;         // odtµÄpid
+    uint8_t entry_count; // è¿™ä¸ª ODT å®é™…å­˜äº†å‡ ä¸ªå˜é‡
+    uint8_t pid;         // odtçš„pid
 } MicroXcp_Odt_t;
 
 typedef struct
 {
-    MicroXcp_Odt_t odts[MICROXCP_DAQ_ODT_COUNT]; // Ò»¸öÖÜÆÚÄÚ¿ÉÄÜÒª·¢ 8 Ö¡ CAN ±¨ÎÄ
-    uint8_t odt_count;                           // Êµ¼Ê¼¤»îÁË¼¸Ö¡
-    uint8_t event_channel;                       // ÖÜÆÚ
-    uint8_t is_running;                          // ×´Ì¬¿ª¹Ø
-    uint8_t en;                                  // Ê¹ÄÜ¿ª¹Ø
+    MicroXcp_Odt_t odts[MICROXCP_DAQ_ODT_COUNT]; // ä¸€ä¸ªå‘¨æœŸå†…å¯èƒ½è¦å‘ 8 å¸§ CAN æŠ¥æ–‡
+    uint8_t odt_count;                           // å®é™…æ¿€æ´»äº†å‡ å¸§
+    uint8_t event_channel;                       // å‘¨æœŸ
+    uint8_t is_running;                          // çŠ¶æ€å¼€å…³
+    uint8_t en;                                  // ä½¿èƒ½å¼€å…³
 } MicroXcp_DaqObj_t;
 
 typedef struct
@@ -127,9 +127,9 @@ typedef struct
     MicroXcp_STA_t sta;
     MicroXcp_Mem_t mem;
 
-    MicroXcp_Context_t daq; // daqÊÇ¶ÀÁ¢µÄÄ£¿é
+    MicroXcp_Context_t daq; // daqæ˜¯ç‹¬ç«‹çš„æ¨¡å—
 
-} MicroXcp_Obj_t; // xcp¶ÔÏó
+} MicroXcp_Obj_t; // xcpå¯¹è±¡
 
 #ifdef __cplusplus
 }
