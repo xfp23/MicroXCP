@@ -10,6 +10,7 @@
  */
 
 #include "MicroXcp.h"
+#include "MicroXCP_types.h"
 #include "MicroXcp_private.h"
 #include "string.h"
 
@@ -175,7 +176,7 @@ void MicroXcp_Init()
 }
 
 // 弱函数，可重写
-int MICROXCP_WEAK MicroXcp_Transmit(uint8_t *data, size_t size)
+MICROXCP_WEAK int MicroXcp_Transmit(uint8_t *data, size_t size)
 {
     (void)data;
     (void)size;

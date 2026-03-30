@@ -23,7 +23,8 @@
 #ifndef MICROXCP_H
 #define MICROXCP_H
 
-#include "MicroXcp_types.h"
+#include "stdlib.h"
+#include "stdint.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -87,7 +88,7 @@ void MicroXcp_TimerHandler(void);
  * - This function can be overridden by user.
  * - Must be non-blocking or bounded-time execution.
  */
-extern int MICROXCP_WEAK MicroXcp_Transmit(uint8_t *data, size_t size);
+extern int MicroXcp_Transmit(uint8_t *data, size_t size);
 
 /**
  * @brief Receive callback (to be called by user)
