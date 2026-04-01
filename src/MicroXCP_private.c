@@ -5,6 +5,7 @@
 #include "MicroXCP.h"
 #include "MicroXCP_private.h"
 #include "string.h"
+#include "MicroXCP_types.h"
 
 /* CTO */
 

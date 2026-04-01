@@ -12,6 +12,7 @@
 #ifndef MICROXCP_PRIVATE_H
 #define MICROXCP_PRIVATE_H
 
+#include "MicroXCP_types.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -314,7 +315,7 @@ typedef enum
     相当于告诉ECU：“我要采集这个变量”
     */
 
-    SET_DAQ_LIST_MODE = 0xE0,
+    SET_DAQ_LIST_MODE = 0xD6,
     /*
     ================== SET_DAQ_LIST_MODE ==================
     功能：设置DAQ触发方式
