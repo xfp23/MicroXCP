@@ -14,6 +14,7 @@
 #include "MicroXcp_private.h"
 #include "string.h"
 
+
 #define XCP_SIZEOF(x) (sizeof(x) / sizeof(x[0]))
 
 static MicroXcp_Obj_t Xcp_obj = {0};
@@ -34,15 +35,27 @@ MicroXcp_RegisterTable_t MemTable[] = {
     {.pid = SHORT_DOWNLOAD, .func = MicroXcp_ShortDownLoadResFunc},
 };
 
-MicroXcp_RegisterTable_t DaqTable[] = {
-    {.pid = GET_DAQ_PROCESSOR_INFO, .func = MicroXcp_GetDaqSizeResFunc},
-    {.pid = SET_DAQ_PTR, .func = MicroXcp_SetDaqPtrResFunc},
-    {.pid = WRITE_DAQ, .func = MicroXcp_WriteDaqResFunc},
-    {.pid = SET_DAQ_LIST_MODE, .func = MicroXcp_SetDaqModeResFunc},
-    {.pid = START_STOP_DAQ_LIST, .func = MicroXcp_StartDaqListResFunc},
-    {.pid = START_STOP_SYNCH, .func = MicroXcp_StartSyncResFunc},
-    {.pid = GET_DAQ_RESOLUTION_INFO, .func = MicroXcp_DaqResolutionInfoResFunc},
+ /* 静态事件通道定义，与 event_channel 编号一一对应 */
+const MicroXcp_EventChannel_t s_EventChannelTable[2] =
+{
+    /* ch0: 1ms  */ { .time_cycle = 1,  .time_unit = 2, .priority = 0, .max_daq_list = MICROXCP_DAQ_LIST_COUNT, .name = "1ms"  },
+    /* ch1: 10ms */ { .time_cycle = 10, .time_unit = 2, .priority = 1, .max_daq_list = MICROXCP_DAQ_LIST_COUNT, .name = "10ms" },
+};
 
+MicroXcp_RegisterTable_t DaqTable[] = {
+    {.pid = GET_DAQ_PROCESSOR_INFO,  .func = MicroXcp_GetDaqSizeResFunc},
+    {.pid = GET_DAQ_RESOLUTION_INFO, .func = MicroXcp_DaqResolutionInfoResFunc},
+    {.pid = GET_DAQ_LIST_INFO,       .func = MicroXcp_GetDaqListInfoResFunc},
+    {.pid = GET_DAQ_EVENT_INFO,      .func = MicroXcp_GetDaqEventInfoResFunc},
+    {.pid = FREE_DAQ,                .func = MicroXcp_FreeDaqResFunc},
+    {.pid = ALLOC_DAQ,               .func = MicroXcp_AllocDaqResFunc},
+    {.pid = ALLOC_ODT,               .func = MicroXcp_AllocOdtResFunc},       
+    {.pid = ALLOC_ODT_ENTRY,         .func = MicroXcp_AllocOdtEntryResFunc},   
+    {.pid = SET_DAQ_PTR,             .func = MicroXcp_SetDaqPtrResFunc},
+    {.pid = WRITE_DAQ,               .func = MicroXcp_WriteDaqResFunc},
+    {.pid = SET_DAQ_LIST_MODE,       .func = MicroXcp_SetDaqModeResFunc},
+    {.pid = START_STOP_DAQ_LIST,     .func = MicroXcp_StartDaqListResFunc},
+    {.pid = START_STOP_SYNCH,        .func = MicroXcp_StartSyncResFunc},
 };
 
 static void MicroXcp_CtoInit()
@@ -89,7 +102,7 @@ static void MicroXcp_DaqInit()
     for (int i = 0; i < size; i++)
     {
         this->daq.pid_list[i].func = DaqTable[i].func;
-        this->daq.pid_list[i].pid = DaqTable[i].pid;
+        this->daq.pid_list[i].pid  = DaqTable[i].pid;
     }
 
     for (int i = 0; i < size - 1; i++)
@@ -99,68 +112,56 @@ static void MicroXcp_DaqInit()
 
     this->daq.pid_list[size - 1].next = NULL;
 
-    uint8_t global_pid = 0;
-
-    for (int i = 0; i < MICROXCP_DAQ_LIST_COUNT; i++)
-    {
-        for (int j = 0; j < MICROXCP_DAQ_ODT_COUNT; j++)
-        {
-
-            this->daq.daq_list[i].odts[j].pid = global_pid++;
-
-            this->daq.daq_list[i].odts[j].entry_count = 0;
-
-            for (int k = 0; k < MICROXCP_DAQ_ODT_DATA_SIZE; k++)
-            {
-                this->daq.daq_list[i].odts[j].entries[k].addr = 0;
-                this->daq.daq_list[i].odts[j].entries[k].size = 0;
-            }
-        }
-    }
+    MicroXcp_DaqReset();
 }
 
-static void MicroXcp_DaqHandler(uint32_t current_tick_ms)
+
+void MicroXcp_DaqHandler(uint32_t current_tick_ms)
 {
-    // 1. 遍历所有 DAQ List
     for (uint8_t d = 0; d < MICROXCP_DAQ_LIST_COUNT; d++)
     {
         MicroXcp_DaqObj_t *pDaq = &this->daq.daq_list[d];
 
-        // 没运行，直接跳过
         if (!pDaq->is_running)
             continue;
 
-        // 2. 检查周期 (这里建议直接根据 event_channel 映射，比如 0=1ms, 1=10ms)
-        uint32_t period = (pDaq->event_channel == 0) ? 1 : (pDaq->event_channel * 10);
+        /* 通道号越界：跳过，防止访问表越界 */
+        if (pDaq->event_channel >= MICROXCP_EVENT_CHANNEL_COUNT)
+            continue;
 
-        if (current_tick_ms % period == 0)
+        /* 直接查表取周期，单位已经在表里定义好是 ms */
+        uint32_t period = s_EventChannelTable[pDaq->event_channel].time_cycle;
+        if (period == 0) period = 1; /* 防止除零 */
+
+        if ((current_tick_ms % period) != 0)
+            continue;
+
+        for (uint8_t o = 0; o < MICROXCP_DAQ_ODT_COUNT; o++)
         {
-            // 3. 遍历这个 List 下的所有激活的 ODT (每一帧报文)
-            for (uint8_t o = 0; o < MICROXCP_DAQ_ODT_COUNT; o++)
+            MicroXcp_Odt_t *pOdt = &pDaq->odts[o];
+
+            if (pOdt->entry_count == 0)
+                continue;
+
+            uint8_t buf[8] = {0};
+            uint8_t pos    = 1;
+            buf[0] = pOdt->pid;
+
+            for (uint8_t e = 0; e < pOdt->entry_count; e++)
             {
-                MicroXcp_Odt_t *pOdt = &pDaq->odts[o];
-                uint8_t buf[8] = {0};
-                uint8_t pos = 1; // 从 Byte 1 开始存数据，Byte 0 留给 PID
+                MicroXcp_Entry_t *pEntry = &pOdt->entries[e];
 
-                buf[0] = pOdt->pid;
+                if (pEntry->addr == 0 || pEntry->size == 0)
+                    continue;
 
-                // 4. 遍历 ODT 里的变量 Entry
-                for (uint8_t e = 0; e < pOdt->entry_count; e++)
-                {
-                    MicroXcp_Entry_t *pEntry = &pOdt->entries[e];
+                if ((pos + pEntry->size) > 8)
+                    break;
 
-                    // 安全检查：防止 entry 里的数据把 buf 撑爆
-                    if (pos + pEntry->size <= 8)
-                    {
-                        // ?  entry->addr 强制转为指针取出里面的值
-                        memcpy(&buf[pos], (void *)pEntry->addr, pEntry->size);
-                        pos += pEntry->size;
-                    }
-                }
-
-                // 5. 组包完成，立刻吐出去
-                MicroXcp_Transmit(buf, 8);
+                memcpy(&buf[pos], (const void *)(uintptr_t)pEntry->addr, pEntry->size);
+                pos += pEntry->size;
             }
+
+            MicroXcp_Transmit(buf, 8);
         }
     }
 }
@@ -231,7 +232,7 @@ void MicroXcp_TimerHandler()
             MicroXcp_ReportError(XCP_ERR_CMD_UNKNOWN);
         }
     }
-    else if (this->frame.byte.pid >= 0xD7 && this->frame.byte.pid <= 0xDD)
+    else if (((this->frame.byte.pid >= 0xD3 && this->frame.byte.pid <= 0xDD) || (this->frame.byte.pid >= 0xE0 && this->frame.byte.pid <= 0xE2)))
     {
         MicroXcp_FindPid_t *node = this->daq.pid_list;
         while (node)

@@ -19,6 +19,11 @@ extern "C"
 {
 #endif
 
+
+#define MICROXCP_EVENT_CHANNEL_COUNT \
+    (sizeof(s_EventChannelTable) / sizeof(s_EventChannelTable[0]))
+    
+
 typedef enum 
 {
     /* --- 协议层通用错误 --- */
@@ -263,117 +268,31 @@ typedef enum
     */
 }MicroXcp_MemoryCmd_t;
 
-typedef enum 
+typedef enum
 {
+    // 查询阶段
+    GET_DAQ_PROCESSOR_INFO = 0xDA,
     GET_DAQ_RESOLUTION_INFO = 0xD9,
-    // GET_DAQ_PROCESSOR_INFO  = 0xD7,
-    GET_DAQ_PROCESSOR_INFO  = 0xDA,
-    /*
-    ================== GET_DAQ_PROCESSOR_INFO  ==================
-    功能：查询DAQ能力（支持多少采集）
+    GET_DAQ_LIST_INFO = 0xD8,
+    GET_DAQ_EVENT_INFO = 0xD7,
 
-    请求：
-    [0] 0xD7
+    // 动态分配阶段（必须按顺序执行)
+    FREE_DAQ = 0xD6,
+    ALLOC_DAQ = 0xD5,
+    ALLOC_ODT = 0xD4,
+    ALLOC_ODT_ENTRY = 0xD3,
 
-    响应：
-    [0] 0xFF
-    [1] daq_count      // 支持多少DAQ列表
-    [2] odt_count      // 每个DAQ有多少ODT（数据包）
-    [3] entry_size     // 每个ODT最多多少字节
-    */
+    // 写入配置阶段（SET_DAQ_PTR → WRITE_DAQ 循环）'
 
     SET_DAQ_PTR = 0xE2,
-    /*
-    ================== SET_DAQ_PTR ==================
-    功能：设置DAQ配置位置（类似写指针）
-
-    请求：
-    [0] 0xE2
-    [1] daq_list   // 第几个DAQ
-    [2] odt        // 第几个数据包
-    [3] entry      // 第几个变量
-
-    响应：
-    [0] 0xFF
-    */
-
     WRITE_DAQ = 0xE1,
-    /*
-    ================== WRITE_DAQ ==================
-    功能：往DAQ里添加一个采集变量
 
-    请求：
-    [0] 0xE1
-    [1] addr_ext
-    [2~5] address  // 变量地址
-    [6] size       // 变量大小
-
-    响应：
-    [0] 0xFF
-
-    说明：
-    相当于告诉ECU：“我要采集这个变量”
-    */
-
-    SET_DAQ_LIST_MODE = 0xD6,
-    /*
-    ================== SET_DAQ_LIST_MODE ==================
-    功能：设置DAQ触发方式
-
-    请求：
-    [0] 0xE0
-    [1] mode
-        bit0 = 1 → 启用DAQ
-        bit1 = 1 → 按事件触发（比如1ms任务）
-    [2] event_channel
-        → 事件号（你自己定义，比如1ms任务=0）
-
-    响应：
-    [0] 0xFF
-    */
-
+    // 运行控制阶段
+    SET_DAQ_LIST_MODE = 0xE0,
     START_STOP_DAQ_LIST = 0xDE,
-    /*
-    ================== START_STOP_DAQ_LIST ==================
-    功能：启动/停止DAQ
-
-    请求：
-    [0] 0xDE
-    [1] mode
-        0 = 停止
-        1 = 启动
-    [2] daq_list
-
-    响应：
-    [0] 0xFF
-
-    说明：
-    启动后ECU会开始发DTO数据（实时数据流）
-    */
-
     START_STOP_SYNCH = 0xDD,
-    /*
-    ================== START_STOP_SYNCH ==================
-    功能：同步启动/停止所有已选择的 DAQ 列表
 
-    请求：
-    [0] 0xDD
-    [1] mode
-        0 = 停止所有 (Stop All)
-        1 = 开启所有已选择的 (Start Selected)
-        2 = 停止所有已选择的 (Stop Selected)
-        3 = 准备同步启动 (Prepare for Synchronous Start)
-
-    响应：
-    [0] 0xFF
-
-    说明：
-    1. 这个指令是“群发”开关。
-    2. 它只影响那些之前通过 0xE0 (SET_DAQ_LIST_MODE) 把 bit0 设为 1 (Selected) 的列表。
-    3. 如果你的 MicroXcp 追求简单，上位机发 1 时，你遍历所有列表把 is_running 改成 1 即可。
-    */
-}MicroXcp_DaqCmd_t;
-
+} MicroXcp_DaqCmd_t;
 
 // typedef union 
 // {
@@ -476,6 +395,7 @@ typedef union {
 }MicroXcp_GetStaRes_t;
 
 extern MicroXcp_Obj_t * const this;
+extern const MicroXcp_EventChannel_t s_EventChannelTable[2];
 
 /**
  * @brief 连接pid响应
@@ -514,6 +434,20 @@ extern void MicroXcp_StartSyncResFunc(void);
 extern void MicroXcp_DaqResolutionInfoResFunc(void);
 
 extern void MicroXcp_ShortDownLoadResFunc(void);
+
+extern void MicroXcp_GetDaqListInfoResFunc(void);
+
+extern void MicroXcp_GetDaqEventInfoResFunc(void);
+
+extern void MicroXcp_DaqReset(void);
+
+extern void MicroXcp_FreeDaqResFunc(void);
+
+extern void MicroXcp_AllocDaqResFunc(void);
+
+extern void MicroXcp_AllocOdtEntryResFunc(void);
+
+extern void MicroXcp_AllocOdtResFunc(void);
 
 #ifdef __cplusplus
 }

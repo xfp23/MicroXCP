@@ -92,6 +92,15 @@ typedef struct
 
 typedef struct
 {
+    uint8_t  time_cycle;    /* 周期数值 */
+    uint8_t  time_unit;     /* 单位: 0=ns,1=us,2=ms,3=s,4=us*10,5=us*100 */
+    uint8_t  priority;      /* 优先级 0=最低 */
+    uint8_t  max_daq_list;  /* 该通道最多挂几个 DAQ List */
+    const char *name;       /* 通道名，可选，填 NULL 则不发名称 */
+} MicroXcp_EventChannel_t;
+
+typedef struct
+{
     MicroXcp_Entry_t entries[MICROXCP_DAQ_ODT_DATA_SIZE];
     uint8_t entry_count; // 这个 ODT 实际存了几个变量
     uint8_t pid;         // odt的pid
@@ -109,9 +118,13 @@ typedef struct
 typedef struct
 {
     MicroXcp_DaqObj_t daq_list[MICROXCP_DAQ_LIST_COUNT];
-    MicroXcp_FindPid_t pid_list[7];
+    MicroXcp_FindPid_t pid_list[13];
 
     uint32_t tick;
+
+    uint8_t alloc_daq_count;        /* ALLOC_DAQ  记录主机申请的 DAQ List 数量 */
+    uint8_t alloc_odt_count;        /* ALLOC_ODT  记录最近一次申请的 ODT 数量  */
+    uint8_t alloc_entry_count;      /* ALLOC_ODT_ENTRY 记录最近一次申请的 Entry 数量 */
 
     uint8_t ptr_daq;
     uint8_t ptr_odt;
