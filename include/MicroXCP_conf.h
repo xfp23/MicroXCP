@@ -1,6 +1,6 @@
 /**
  * @file    MicroXcp_Conf.h
- * @author  https://github.com/xfp23
+ * @author  https://xfp23.github.io
  * @brief   MicroXCP Configuration File
  * @version 0.1.0
  * @date    2026-03-20

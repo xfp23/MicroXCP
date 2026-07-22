@@ -1,6 +1,6 @@
 /**
  * @file MicroXCP.c
- * @author https://github.com/xfp23
+ * @author https://xfp23.github.io
  * @brief xcp源码实现
  * @version 0.1
  * @date 2026-03-26
